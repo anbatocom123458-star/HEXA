@@ -1,0 +1,6 @@
+/target
+**/*.he.exe
+*.o
+*.tmp
+/tests/tmp
+.DS_Store

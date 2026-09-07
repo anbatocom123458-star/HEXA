@@ -1,0 +1,9 @@
+[package]
+name = "hexa-compiler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# The bootstrap compiler has no third-party dependencies on purpose:
+# it keeps the front-end self-contained and reusable for self-hosting.
