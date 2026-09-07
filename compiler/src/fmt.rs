@@ -28,16 +28,6 @@ fn push_token(out: &mut String, tok: &Token, prev: Option<&Token>, src: &str) {
                     | Tok::Ge | Tok::AndAnd | Tok::OrOr | Tok::Question => " ",
                     Tok::Plus | Tok::Minus | Tok::Star | Tok::Slash | Tok::Percent
                     | Tok::Lt | Tok::Gt => " ",
-                    // Re-join `=>` if it was split by the lexer with no gap.
-                    Tok::Assign if t == ">" && {
-                        let gap = &src[p.span.end..tok.span.start];
-                        gap.is_empty()
-                    } =>
-                    {
-                        // handled below by rewriting the trailing " = "
-                        let _ = t;
-                        ""
-                    }
                     _ => " ",
                 }
             }

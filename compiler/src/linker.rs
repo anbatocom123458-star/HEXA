@@ -49,8 +49,38 @@ pub fn assemble_and_link(tools: &BuildTools, asm: &str, out: &Path, keep_asm: bo
         p
     };
     run(Command::new(&tools.asm).arg("-o").arg(&obj_path).arg(&asm_src))?;
-    // link (static, no libc needed: raw-syscall runtime)
-    run(Command::new(&tools.linker).arg("-o").arg(out).arg(&obj_path).arg("-e").arg("_start"))?;
+    // Link as a dynamic executable: the program loads the shared HEXA
+    // runtime library (libhexa_runtime.so) through dlopen/dlsym, which
+    // requires libc (the entry handoff is __libc_start_main -> hexa_c_main).
+    run(
+        Command::new(&tools.linker)
+            .arg("-o").arg(out)
+            .arg(&obj_path)
+            .arg("-e").arg("_start")
+            .arg("--dynamic-linker").arg("/lib64/ld-linux-x86-64.so.2")
+            .arg("-lc").arg("-ldl")
+            .arg("-z").arg("now") // BIND_NOW: resolve PLT eagerly (no lazy GOT[2] trampoline)
+            .arg("-L/usr/lib/x86_64-linux-gnu")
+            .arg("-L/lib/x86_64-linux-gnu"),
+    )?;
+    // Also emit an RPATH pointing at the installation lib directory so the
+    // runtime library is found both in-tree and after `hexa install`.
+    let lib_dir = std::env::var("HEXA_RUNTIME_LIB").unwrap_or_else(|_| {
+        // derive from the output path's directory's sibling lib/ when present
+        out.parent()
+            .and_then(|d| d.parent())
+            .map(|p| p.join("lib"))
+            .filter(|p| p.exists())
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default()
+    });
+    if !lib_dir.is_empty() {
+        let _ = run(Command::new("patchelf")
+            .arg("--set-rpath").arg(&lib_dir)
+            .arg(out));
+        // patchelf is optional; failure here is not a build failure because
+        // LD_LIBRARY_PATH / installed paths also work.
+    }
     if !keep_asm {
         let _ = fs::remove_file(&asm_src);
     }

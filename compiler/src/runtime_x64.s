@@ -1,4 +1,10 @@
-# HEXA x86-64 libc-free runtime (raw Linux syscalls).
+# HEXA x86-64 runtime (Linux).
+#
+# The executable is linked dynamically against libc so that HEXA-compiled
+# programs can load the shared runtime library (libhexa_runtime.so) via
+# dlopen(3)/dlsym(3). The entry point follows the standard libc handoff:
+# _start -> __libc_start_main(hexa_c_main) -> hexa_rt_ensure_ns -> hexa_main.
+# Program code itself still performs I/O through raw syscalls below.
 # Syscall numbers (x86_64): 0=read 1=write 9=mmap 11=munmap 60=exit.
 
     .text
@@ -6,7 +12,25 @@
     .type _start, @function
 _start:
     xorl %ebp, %ebp
+    movq %rsp, %r15                 # original stack (argc, argv, envp)
     andq $-16, %rsp
+    pushq $0                        # stack_end placeholder (arg 7 slot)
+    pushq %r15                      # 7th arg: stack_end
+    xorl %ecx, %ecx                 # init = NULL
+    xorl %r8d, %r8d                 # fini = NULL
+    xorl %r9d, %r9d                 # rtld_fini = NULL
+    movq (%r15), %rsi               # argc
+    leaq 8(%r15), %rdx              # argv
+    leaq hexa_c_main(%rip), %rdi    # main
+    call __libc_start_main@PLT
+    hlt
+
+# hexa_c_main: bootstrap the runtime library, run the program, exit.
+    .type hexa_c_main, @function
+hexa_c_main:
+    pushq %rbp
+    movq %rsp, %rbp
+    call hexa_rt_ensure_ns
     call hexa_main
     movl %eax, %edi
     movl $60, %eax
@@ -142,11 +166,31 @@ hexa_itoa_str:
 hexa_print_str:
     pushq %rbp
     movq %rsp, %rbp
-    movq %rdi, %rsi
+    subq $16, %rsp
+    movq %rdi, -8(%rbp)
+    call hexa_rt_ensure_ns
+    movq hexa_fn_print(%rip), %r11
+    testq %r11, %r11
+    jz .Lps_fallback
+    movq hexa_rt_handle(%rip), %rdi
+    movq -8(%rbp), %rsi
+    call *%r11
+    testq %rax, %rax
+    js .Lps_rt_fail
+    jmp .Lps_nl
+.Lps_fallback:
+    # Literal values still have the {len,data} layout, so a raw write is
+    # possible without the runtime library; non-literal values are not,
+    # and fail honestly below.
+    movq -8(%rbp), %rsi
+    testq %rsi, %rsi
+    jz .Lps_rt_fail
+    movq (%rsi), %rdx
     addq $8, %rsi
-    movq (%rdi), %rdx
     movl $1, %edi
     call hexa_write
+    jmp .Lps_nl
+.Lps_nl:
     leaq hexa_newline(%rip), %rsi
     movl $1, %edi
     movl $1, %edx
@@ -154,6 +198,10 @@ hexa_print_str:
     movq %rbp, %rsp
     popq %rbp
     ret
+.Lps_rt_fail:
+    # The runtime library is required for this output and is not usable.
+    movl $70, %edi
+    call hexa_exit
 
 # hexa_print_int(val=rdi)
     .globl hexa_print_int
@@ -253,3 +301,158 @@ hexa_str_false: .ascii "false"
     .section .bss
     .align 8
 hexa_itoa_buf: .skip 32
+
+# ============================================================ #
+# Runtime library bridge (Phase: packaging/runtime)
+#
+# Native executables produced by `hexa build` are linked against a
+# shared runtime library (libhexa_runtime.so, built from the crypto
+# subsystem) that provides the crypto, filesystem, and encoding
+# primitives of the HEXA standard library over a versioned C ABI.
+#
+# The library is resolved at process start via dlopen(3)/dlsym(3)
+# using libc (the same technique ld.so itself uses to bootstrap).
+# Symbols are weak references: if the library is missing, the
+# executable still runs std-free programs and fails honestly
+# (exit 70) on operations that require the runtime.
+# ============================================================ #
+
+    .bss
+    .align 8
+hexa_rt_handle: .skip 8
+hexa_rt_checked: .skip 8
+hexa_fn_init: .skip 8
+hexa_fn_print: .skip 8
+hexa_fn_write_file: .skip 8
+hexa_fn_read_file: .skip 8
+hexa_fn_encrypt_file: .skip 8
+hexa_fn_decrypt_file: .skip 8
+hexa_fn_hash: .skip 8
+hexa_fn_random: .skip 8
+hexa_fn_key_display: .skip 8
+hexa_fn_hex_encode: .skip 8
+hexa_fn_hex_decode: .skip 8
+hexa_fn_to_text: .skip 8
+hexa_fn_alloc: .skip 8
+hexa_fn_free: .skip 8
+hexa_fn_last_error: .skip 8
+
+    .text
+# ---- hexa_rt_ensure_ns: one-time runtime bootstrap (non-reentrant) ----
+# Preserves all caller registers except rax/r11/rcx.
+    .globl hexa_rt_ensure_ns
+    .type hexa_rt_ensure_ns, @function
+hexa_rt_ensure_ns:
+    pushq %rbp
+    movq %rsp, %rbp
+    pushq %rbx
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+    subq $8, %rsp
+    cmpq $0, hexa_rt_checked(%rip)
+    jne .Lren_done
+    movq $1, hexa_rt_checked(%rip)
+    # -- step 1: dlopen("libhexa_runtime.so", RTLD_NOW)
+    leaq hexa_s_libhexa(%rip), %rdi
+    movq $2, %rsi                   # RTLD_NOW
+    call dlopen@PLT
+    testq %rax, %rax
+    jz .Lren_fail
+    movq %rax, hexa_rt_handle(%rip)
+    movq %rax, %r15                 # runtime handle
+    # -- step 2: dlsym the ABI entry points
+    xorl %ebx, %ebx                 # symbol index
+.Lren_sym_loop:
+    leaq hexa_sym_table(%rip), %rax
+    leaq (%rax,%rbx,8), %rax
+    movq (%rax), %rsi               # symbol name
+    testq %rsi, %rsi
+    jz .Lren_syms_done
+    movq %r15, %rdi
+    call dlsym@PLT
+    leaq hexa_fn_table(%rip), %rcx
+    leaq (%rcx,%rbx,8), %rcx
+    movq %rax, (%rcx)
+    incq %rbx
+    jmp .Lren_sym_loop
+.Lren_syms_done:
+    # -- step 3: ABI handshake
+    movq hexa_fn_init(%rip), %r11
+    testq %r11, %r11
+    jz .Lren_fail
+    movq $1, %rdi                   # HEXA_RT_ABI_VERSION = 1
+    call *%r11
+    testq %rax, %rax
+    jnz .Lren_fail
+    jmp .Lren_ok
+.Lren_fail:
+    xorl %eax, %eax
+    movq %rax, hexa_rt_handle(%rip)
+    movq %rax, hexa_fn_init(%rip)
+.Lren_ok:
+    addq $8, %rsp
+    popq %r15
+    popq %r14
+    popq %r13
+    popq %r12
+    popq %rbx
+.Lren_done:
+    popq %rbp
+    ret
+
+    .section .rodata
+hexa_s_libhexa:     .asciz "libhexa_runtime.so"
+
+    .align 8
+hexa_sym_table:
+    .quad hexa_s_init
+    .quad hexa_s_print
+    .quad hexa_s_write_file
+    .quad hexa_s_read_file
+    .quad hexa_s_encrypt_file
+    .quad hexa_s_decrypt_file
+    .quad hexa_s_hash
+    .quad hexa_s_random
+    .quad hexa_s_key_display
+    .quad hexa_s_hex_encode
+    .quad hexa_s_hex_decode
+    .quad hexa_s_to_text
+    .quad hexa_s_alloc
+    .quad hexa_s_free
+    .quad hexa_s_last_error
+    .quad 0
+hexa_fn_table:
+    .quad hexa_fn_init
+    .quad hexa_fn_print
+    .quad hexa_fn_write_file
+    .quad hexa_fn_read_file
+    .quad hexa_fn_encrypt_file
+    .quad hexa_fn_decrypt_file
+    .quad hexa_fn_hash
+    .quad hexa_fn_random
+    .quad hexa_fn_key_display
+    .quad hexa_fn_hex_encode
+    .quad hexa_fn_hex_decode
+    .quad hexa_fn_to_text
+    .quad hexa_fn_alloc
+    .quad hexa_fn_free
+    .quad hexa_fn_last_error
+
+hexa_s_init:        .asciz "hexa_sys_init"
+hexa_s_print:       .asciz "hexa_fs_print"
+hexa_s_write_file:  .asciz "hexa_fs_write_file"
+hexa_s_read_file:   .asciz "hexa_fs_read_file"
+hexa_s_encrypt_file: .asciz "hexa_crypto_encrypt_file"
+hexa_s_decrypt_file: .asciz "hexa_crypto_decrypt_file"
+hexa_s_hash:        .asciz "hexa_crypto_hash"
+hexa_s_random:      .asciz "hexa_sys_random"
+hexa_s_key_display: .asciz "hexa_crypto_key_display"
+hexa_s_hex_encode:  .asciz "hexa_encoding_hex_encode"
+hexa_s_hex_decode:  .asciz "hexa_encoding_hex_decode"
+hexa_s_to_text:     .asciz "hexa_fs_to_text"
+hexa_s_alloc:       .asciz "hexa_rt_alloc"
+hexa_s_free:        .asciz "hexa_rt_free"
+hexa_s_last_error:  .asciz "hexa_rt_last_error"
+

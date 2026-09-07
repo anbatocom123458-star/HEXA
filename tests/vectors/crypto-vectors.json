@@ -1,0 +1,159 @@
+{
+  "schema": "hexa.phase2.crypto-test-vectors",
+  "schema_version": 1,
+  "format": "hexa-v1-as-implemented",
+  "note": "Deterministic regression vectors. Fixed inputs only. Expected values pin the format layout (big-endian, MAGIC 'HEXA1\\n', layer records, 'HEXAEND1' trailer) and the cipher composition (Argon2id -> HKDF master -> HKDF per-layer keys -> layered AEAD with header AAD). Any change to the format or crypto breaks these. All keys/passwords here are public test data, never real secrets.",
+  "vectors": [
+    {
+      "name": "aes256-gcm-hello-rawkey",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "kdf": null,
+      "argon2_params": null,
+      "kdf_param_word": 0,
+      "metadata": "v=1;algo=aes256-gcm;layers=1;original_size=5",
+      "plaintext_hex": "68656c6c6f",
+      "plaintext_sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "key_or_password_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f",
+      "outer_nonce_hex": "18191a1b1c1d1e1f20212223",
+      "layer_nonces_hex": [
+        "0c0d0e0f1011121314151617"
+      ],
+      "expected_argon2_output_hex": null,
+      "expected_master_key_hex": "1e37eb32386c8427e984ee02faadf656b87533b99488e128d6aab2e4d0a695f9",
+      "expected_layer_keys_hex": [
+        "3699bd86074402af4f7b6fd0f9e8102aaf141b08ce13e826a1aa2a274c6e6c59"
+      ],
+      "expected_layer_ciphertext_tag_hex": [
+        "0a4f6befe6971c1b191e5a555821cf43bde94b81be"
+      ],
+      "expected_file_hex": "48455841310a010101001018191a1b1c1d1e1f20212223000000010000002c00000000000102030405060708090a0b0c0d0e0f763d313b616c676f3d6165733235362d67636d3b6c61796572733d313b6f726967696e616c5f73697a653d35010c0d0e0f10111213141516170a4f6befe6971c1b191e5a555821cf43bde94b81be48455841454e4431",
+      "file_size": 137
+    },
+    {
+      "name": "chacha20-poly1305-hello-rawkey",
+      "algorithm": "chacha20-poly1305",
+      "layers": 1,
+      "kdf": null,
+      "argon2_params": null,
+      "kdf_param_word": 0,
+      "metadata": "v=1;algo=chacha20-poly1305;layers=1;original_size=5",
+      "plaintext_hex": "68656c6c6f",
+      "plaintext_sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "key_or_password_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f",
+      "outer_nonce_hex": "18191a1b1c1d1e1f20212223",
+      "layer_nonces_hex": [
+        "0c0d0e0f1011121314151617"
+      ],
+      "expected_argon2_output_hex": null,
+      "expected_master_key_hex": "1e37eb32386c8427e984ee02faadf656b87533b99488e128d6aab2e4d0a695f9",
+      "expected_layer_keys_hex": [
+        "370c64d531532fc925028711998f78705c8f3aff2a222510d63ed0eb9b1e5129"
+      ],
+      "expected_layer_ciphertext_tag_hex": [
+        "8b6e44bc04552da7a0a8b0f77e7c205fe80b9bc9aa"
+      ],
+      "expected_file_hex": "48455841310a010102001018191a1b1c1d1e1f20212223000000010000003300000000000102030405060708090a0b0c0d0e0f763d313b616c676f3d63686163686132302d706f6c79313330353b6c61796572733d313b6f726967696e616c5f73697a653d35020c0d0e0f10111213141516178b6e44bc04552da7a0a8b0f77e7c205fe80b9bc9aa48455841454e4431",
+      "file_size": 144
+    },
+    {
+      "name": "argon2id-hello-password",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "kdf": "argon2id",
+      "argon2_params": {
+        "m_cost_kib": 19456,
+        "t_cost": 2,
+        "p_cost": 1,
+        "hash_len": 32
+      },
+      "kdf_param_word": 33554736,
+      "metadata": "v=1;algo=aes256-gcm;layers=1;original_size=5",
+      "plaintext_hex": "68656c6c6f",
+      "plaintext_sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "key_or_password_hex": "6120666978656420746573742070617373776f7264",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f",
+      "outer_nonce_hex": "18191a1b1c1d1e1f20212223",
+      "layer_nonces_hex": [
+        "0c0d0e0f1011121314151617"
+      ],
+      "expected_argon2_output_hex": "c93fa3b0203226c1e01c3ad39a2fb29da8e9d3a7af50739637dcfc2dcefe56a8",
+      "expected_master_key_hex": "1ba6538efdffaa265db83c224c05bd7fb4c30bea244c00c0e7f16ec6f84a8ae3",
+      "expected_layer_keys_hex": [
+        "45fcb69b2825ff3c8d4de8338f8357b25db264a02d5ca6aeddbf2d7e2c300f6c"
+      ],
+      "expected_layer_ciphertext_tag_hex": [
+        "15e6f8e76da9f5e8993b052cb1ada41ff495977c8f"
+      ],
+      "expected_file_hex": "48455841310a010101011018191a1b1c1d1e1f20212223000000010000002c02000130000102030405060708090a0b0c0d0e0f763d313b616c676f3d6165733235362d67636d3b6c61796572733d313b6f726967696e616c5f73697a653d35010c0d0e0f101112131415161715e6f8e76da9f5e8993b052cb1ada41ff495977c8f48455841454e4431",
+      "file_size": 137
+    },
+    {
+      "name": "aes256-gcm-hello-3layers",
+      "algorithm": "aes256-gcm",
+      "layers": 3,
+      "kdf": null,
+      "argon2_params": null,
+      "kdf_param_word": 0,
+      "metadata": "v=1;algo=aes256-gcm;layers=3;original_size=5",
+      "plaintext_hex": "68656c6c6f",
+      "plaintext_sha256": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "key_or_password_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f",
+      "outer_nonce_hex": "18191a1b1c1d1e1f20212223",
+      "layer_nonces_hex": [
+        "0c0d0e0f1011121314151617",
+        "18191a1b1c1d1e1f20212223",
+        "2425262728292a2b2c2d2e2f"
+      ],
+      "expected_argon2_output_hex": null,
+      "expected_master_key_hex": "1e37eb32386c8427e984ee02faadf656b87533b99488e128d6aab2e4d0a695f9",
+      "expected_layer_keys_hex": [
+        "3699bd86074402af4f7b6fd0f9e8102aaf141b08ce13e826a1aa2a274c6e6c59",
+        "e3c11fa0d2c11ea38f986bd613879bca25c4670ecba4ea6b69c997cdf9e23eea",
+        "1c3d8d62658b7b38ba1a123bf45ed9a6f853db40e2a5265b9c5c090cd23535b9"
+      ],
+      "expected_layer_ciphertext_tag_hex": [
+        "0a4f6befe649a12793fb92bafde9e83d18d3305b54",
+        "4fa96b7a39ca6308bad7b1eaf5824cf410d5945f0eb25dfcb788e06ca382b85dd8bac3a6e3",
+        "7007cd4c647fdbf348aad9b02b612b41a769ca29b03256c5eb7b4503ed96ef4d20e757f91fb96f8714241053be4f2efaf810fa254a"
+      ],
+      "expected_file_hex": "48455841310a010101001018191a1b1c1d1e1f20212223000000030000002c00000000000102030405060708090a0b0c0d0e0f763d313b616c676f3d6165733235362d67636d3b6c61796572733d333b6f726967696e616c5f73697a653d35010c0d0e0f10111213141516170a4f6befe649a12793fb92bafde9e83d18d3305b540118191a1b1c1d1e1f202122234fa96b7a39ca6308bad7b1eaf5824cf410d5945f0eb25dfcb788e06ca382b85dd8bac3a6e3012425262728292a2b2c2d2e2f7007cd4c647fdbf348aad9b02b612b41a769ca29b03256c5eb7b4503ed96ef4d20e757f91fb96f8714241053be4f2efaf810fa254a48455841454e4431",
+      "file_size": 253
+    },
+    {
+      "name": "aes256-gcm-empty-rawkey",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "kdf": null,
+      "argon2_params": null,
+      "kdf_param_word": 0,
+      "metadata": "v=1;algo=aes256-gcm;layers=1;original_size=0",
+      "plaintext_hex": "",
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "key_or_password_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "salt_hex": "000102030405060708090a0b0c0d0e0f",
+      "outer_nonce_hex": "18191a1b1c1d1e1f20212223",
+      "layer_nonces_hex": [
+        "2425262728292a2b2c2d2e2f"
+      ],
+      "expected_argon2_output_hex": null,
+      "expected_master_key_hex": "1e37eb32386c8427e984ee02faadf656b87533b99488e128d6aab2e4d0a695f9",
+      "expected_layer_keys_hex": [
+        "3699bd86074402af4f7b6fd0f9e8102aaf141b08ce13e826a1aa2a274c6e6c59"
+      ],
+      "expected_layer_ciphertext_tag_hex": [
+        "1125ab1f566d57f9adc0aa22c7d49d77"
+      ],
+      "expected_file_hex": "48455841310a010101001018191a1b1c1d1e1f20212223000000010000002c00000000000102030405060708090a0b0c0d0e0f763d313b616c676f3d6165733235362d67636d3b6c61796572733d313b6f726967696e616c5f73697a653d30012425262728292a2b2c2d2e2f1125ab1f566d57f9adc0aa22c7d49d7748455841454e4431",
+      "file_size": 132
+    }
+  ],
+  "display_key": {
+    "format": "HX-<base64url-no-padding>",
+    "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+    "expected_display": "HX-AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
+  }
+}

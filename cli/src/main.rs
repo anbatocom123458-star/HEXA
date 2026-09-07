@@ -73,7 +73,8 @@ ENCRYPTION:
 
 A generated key is displayed EXACTLY ONCE and is never recoverable.
 ",
-        VERSION
+        VERSION,
+        LANGUAGE_VERSION,
     );
     0
 }
@@ -265,8 +266,9 @@ fn cmd_format(args: &[String]) -> i32 {
         Ok(s) => s,
         Err(code) => return code,
     };
-    match hexa_compiler::parser::format_source(&src) {
-        Ok(formatted) => {
+    let mut diags = hexa_compiler::diagnostics::Diagnostics { items: Vec::new() };
+    match hexa_compiler::fmt::format_source(&src, &mut diags) {
+        Some(formatted) => {
             if c.check_only {
                 if formatted == src {
                     println!("{}: formatted", path);
@@ -276,16 +278,18 @@ fn cmd_format(args: &[String]) -> i32 {
                     1
                 }
             } else {
-                std::fs::write(path, &formatted).map_err(|e| {
-                    eprintln!("error: cannot write {}: {}", path, e);
-                    1
-                })?;
+                if std::fs::write(path, &formatted).is_err() {
+                    eprintln!("error: cannot write {}", path);
+                    return 1;
+                }
                 0
             }
         }
-        Err(_) => return 1,
+        None => {
+            eprintln!("error: cannot format {}", path);
+            return 1;
+        }
     }
-    0
 }
 
 // ---------- encrypt / decrypt / inspect ----------
@@ -336,10 +340,13 @@ fn cmd_encrypt(args: &[String]) -> i32 {
                 match args.get(i) {
                     Some(p) => match std::fs::read(p) {
                         Ok(bytes) => {
-                            let mut pw = String::from_utf8(bytes).map_err(|_| {
-                                eprintln!("error: password file is not valid UTF-8");
-                                2
-                            })?;
+                            let mut pw = match String::from_utf8(bytes) {
+                                Ok(p) => p,
+                                Err(_) => {
+                                    eprintln!("error: password file is not valid UTF-8");
+                                    return 2;
+                                }
+                            };
                             while pw.ends_with('\n') || pw.ends_with('\r') {
                                 pw.pop();
                             }
@@ -695,12 +702,31 @@ fn cmd_doctor() -> i32 {
     println!("compiler version: {}", VERSION);
     println!("language version: {}", LANGUAGE_VERSION);
     println!(".hexa format:     v{}", HEXA_FORMAT_VERSION);
+    let mut ok = false;
     let tools = hexa_compiler::linker::BuildTools::detect();
-    println!("assembler:        {}", tools.assembler.as_deref().unwrap_or("NOT FOUND"));
-    println!("linker:           {}", tools.linker.as_deref().unwrap_or("NOT FOUND"));
-    let ok = tools.assembler.is_some() && tools.linker.is_some();
-    if ok {
+    // Probe the tools for real: a configured name that cannot run is a failure.
+    let asm_ok = std::process::Command::new(&tools.asm)
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let ld_ok = std::process::Command::new(&tools.linker)
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+    let tools_ok = asm_ok && ld_ok;
+    println!(
+        "assembler:        {}",
+        if asm_ok { tools.asm.as_str() } else { "NOT FOUND" }
+    );
+    println!(
+        "linker:           {}",
+        if ld_ok { tools.linker.as_str() } else { "NOT FOUND" }
+    );
+    if tools_ok {
         println!("native builds:    READY");
+        ok = true;
     } else {
         println!("native builds:    UNAVAILABLE (install binutils: 'as' and 'ld')");
     }

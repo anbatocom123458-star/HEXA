@@ -83,14 +83,19 @@ fn parse_elf(bytes: &[u8]) -> Result<(Vec<Section>, Vec<Symbol>), String> {
     if shstrndx >= sections.len() {
         return Err("invalid section name string table index".into());
     }
-    let strt = &sections[shstrndx];
-    if strt.offset + strt.size > bytes.len() {
-        return Err("section name string table out of range".into());
-    }
+    // Pre-compute the string-table range so the mutable iteration below
+    // does not hold an immutable borrow across it (E0502).
+    let (strt_off, strt_end) = {
+        let strt = &sections[shstrndx];
+        if strt.offset + strt.size > bytes.len() {
+            return Err("section name string table out of range".into());
+        }
+        (strt.offset, strt.offset + strt.size)
+    };
     for (i, s) in sections.iter_mut().enumerate() {
         let base = shoff + i * shentsize;
         let name_off = u32_at(bytes, base).unwrap_or(0) as usize;
-        s.name = cstr(&bytes[strt.offset..strt.offset + strt.size], name_off);
+        s.name = cstr(&bytes[strt_off..strt_end], name_off);
     }
 
     // Symbols from .symtab (sh_type 2) using its linked strtab.
@@ -148,12 +153,24 @@ fn decode(b: &[u8]) -> (String, usize) {
         0x58..=0x5f => (format!("popq %{}", REG64[(b[0] - 0x58) as usize]), 1),
         0xb8 => (format!("movl $0x{:x}, %eax", u32_at(b, 1).unwrap_or(0)), 5),
         0xe8 => {
-            let rel = i32::from_le_bytes([*b.get(1)?, *b.get(2)?, *b.get(3)?, *b.get(4)?]);
+            // Short bytes here fall back to a zero displacement; the caller
+            // re-emits the raw bytes when the instruction would overrun.
+            let rel = i32::from_le_bytes([
+                *b.get(1).unwrap_or(&0),
+                *b.get(2).unwrap_or(&0),
+                *b.get(3).unwrap_or(&0),
+                *b.get(4).unwrap_or(&0),
+            ]);
             (format!("call {:+#x}", rel as i64), 5)
         }
         0xeb => (format!("jmp .+{}", b[1] as i8 as i64 + 2), 2),
         0xe9 => {
-            let rel = i32::from_le_bytes([*b.get(1)?, *b.get(2)?, *b.get(3)?, *b.get(4)?]);
+            let rel = i32::from_le_bytes([
+                *b.get(1).unwrap_or(&0),
+                *b.get(2).unwrap_or(&0),
+                *b.get(3).unwrap_or(&0),
+                *b.get(4).unwrap_or(&0),
+            ]);
             (format!("jmp .+{}", rel as i64 + 5), 5)
         }
         0x31 if b.get(1) == Some(&0xc0) => ("xorl %eax, %eax".into(), 2),

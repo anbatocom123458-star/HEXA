@@ -1,0 +1,195 @@
+{
+  "about": "test fixtures, public test keys only",
+  "files": {
+    "plaintext-small.txt": {
+      "kind": "plaintext",
+      "size": 25
+    },
+    "plaintext-large.bin": {
+      "kind": "plaintext",
+      "size": 262144
+    },
+    "plaintext-binary.bin": {
+      "kind": "plaintext",
+      "size": 16384
+    },
+    "plaintext-unicode.txt": {
+      "kind": "plaintext",
+      "size": 60
+    },
+    "plaintext-empty.bin": {
+      "kind": "plaintext",
+      "size": 0
+    },
+    "valid-aes-hello.hexa": {
+      "kind": "valid-hexa",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_sha256": "680e65f1308a7747ab503979ee1fc76405f5b82ab2f8a529e3f52727aa784048",
+      "size": 158
+    },
+    "valid-chacha-hello.hexa": {
+      "kind": "valid-hexa",
+      "algorithm": "chacha20-poly1305",
+      "layers": 1,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_sha256": "680e65f1308a7747ab503979ee1fc76405f5b82ab2f8a529e3f52727aa784048",
+      "size": 165
+    },
+    "valid-aes-3layers.hexa": {
+      "kind": "valid-hexa",
+      "algorithm": "aes256-gcm",
+      "layers": 3,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_sha256": "5a48ff7064dbb6d8e12ac8e4fd5695e8b703da3288de937a01f51b1695206444",
+      "size": 299
+    },
+    "valid-unicode.hexa": {
+      "kind": "valid-hexa",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_sha256": "fce89f623a0cfb81bab411de9e1254dd217562ed3e1a87fca3c5981d1e3a35ca",
+      "size": 193
+    },
+    "valid-empty.hexa": {
+      "kind": "valid-hexa",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 132
+    },
+    "valid-aes-hello-otherkey.hexa": {
+      "kind": "valid-hexa",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "key_hex": "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100",
+      "plaintext_sha256": "680e65f1308a7747ab503979ee1fc76405f5b82ab2f8a529e3f52727aa784048",
+      "size": 158
+    },
+    "valid-large.hexa": {
+      "kind": "valid-hexa",
+      "algorithm": "aes256-gcm",
+      "layers": 1,
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "plaintext_sha256": "d30eb241f95e7c37c033251a78eae1610ac9b02dc99625442158180d35818c1b",
+      "size": 262281
+    },
+    "corrupted/bitflip-ciphertext.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "decrypt-fails",
+      "note": "single bit flip in payload",
+      "size": 158
+    },
+    "corrupted/bitflip-trailer.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "last byte of HEXAEND1 trailer flipped",
+      "size": 158
+    },
+    "corrupted/bitflip-tag.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "decrypt-fails",
+      "note": "single bit flip in AEAD tag",
+      "size": 158
+    },
+    "corrupted/bitflip-metadata.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-ok-decrypt-fails",
+      "note": "metadata is header AAD",
+      "size": 158
+    },
+    "corrupted/truncated-tail.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-or-decrypt-fails",
+      "note": "cut into the trailer",
+      "size": 153
+    },
+    "corrupted/truncated-half.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-or-decrypt-fails",
+      "note": "cut in half",
+      "size": 79
+    },
+    "corrupted/version-2.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-002 unsupported version",
+      "size": 158
+    },
+    "corrupted/flags-unauthenticated.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-003",
+      "size": 158
+    },
+    "corrupted/algorithm-254.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-004",
+      "size": 158
+    },
+    "corrupted/kdf-127.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-004",
+      "size": 158
+    },
+    "corrupted/zero-layers.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-007 layer count 0",
+      "size": 158
+    },
+    "corrupted/metadata-len-giant.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-006 cap",
+      "size": 158
+    },
+    "corrupted/salt-len-255-short.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-005 truncated",
+      "size": 158
+    },
+    "corrupted/metadata-bad-utf8.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-006 bad UTF-8",
+      "size": 158
+    },
+    "corrupted/trailing-garbage.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-008",
+      "size": 165
+    },
+    "corrupted/empty-file.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-001 truncated magic",
+      "size": 0
+    },
+    "corrupted/one-byte.hexa": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "EHEX-001 truncated magic",
+      "size": 1
+    },
+    "corrupted/random-256.bin": {
+      "kind": "corrupt-hexa",
+      "expect": "parse-rejects",
+      "note": "not a .hexa file",
+      "size": 256
+    },
+    "wrong-key-target.hexa": {
+      "kind": "wrong-key-target",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "wrong_key_hex": "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100",
+      "note": "decrypt must fail with wrong_key_hex and succeed with key_hex"
+    }
+  }
+}
