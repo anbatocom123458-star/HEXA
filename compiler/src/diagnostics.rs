@@ -115,6 +115,8 @@ impl Diagnostic {
     pub fn note(message: impl Into<String>) -> Self {
         Diagnostic { severity: Severity::Note, code: None, message: message.into(), span: None, hint: None }
     }
+}
+
 /// The source map owns all files participating in a compilation.
 #[derive(Default)]
 pub struct SourceMap {
@@ -156,7 +158,7 @@ impl SourceMap {
             let (_, ce) = f.line_col(span.end.saturating_sub(1));
             (cs, ce + 1)
         };
-        let src = f.line(line.saturating_sub(1));
+        let src = f.line_text(line.saturating_sub(1));
         let width = ecol.saturating_sub(scol).max(1);
         let marker = format!("{}{}", " ".repeat(scol.saturating_sub(1)), "^".repeat(width));
         format!(
@@ -212,5 +214,4 @@ impl Diagnostics {
         }
         out
     }
-}
 }

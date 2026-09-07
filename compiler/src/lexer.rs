@@ -11,7 +11,7 @@ pub enum Tok {
     Ident, Int, Dec, Str, ByteStr, Char,
     Fn, Let, Mut, Const, If, Else, For, While, Match, Return,
     Struct, Enum, Trait, Impl, Import, Module, Pub, Private,
-    Async, Await, True, False, As,
+    Async, Await, True, False, As, In,
     Plus, Minus, Star, Slash, Percent,
     Eq, Ne, Lt, Le, Gt, Ge, AndAnd, OrOr, Bang, Ampersand, Pipe,
     Question, Arrow, Assign,
@@ -27,6 +27,7 @@ pub const KEYWORD_MAP: &[(&str, Tok)] = &[
     ("import", Tok::Import), ("module", Tok::Module), ("pub", Tok::Pub),
     ("private", Tok::Private), ("async", Tok::Async), ("await", Tok::Await),
     ("as", Tok::As), ("true", Tok::True), ("false", Tok::False),
+    ("in", Tok::In),
 ];
 
 #[derive(Clone, Debug)]
@@ -245,7 +246,8 @@ impl<'a> Lexer<'a> {
             b'x' => {
                 let hi = self.bump();
                 let lo = self.bump();
-                let s = std::str::from_utf8(&[hi, lo]).unwrap_or("");
+                let bytes = [hi, lo];
+                let s = std::str::from_utf8(&bytes).unwrap_or("");
                 match u8::from_str_radix(s, 16) {
                     Ok(v) => v as char,
                     Err(_) => { self.diags.push(Diagnostic::error("E1006", "invalid \\x escape").at(self.span(start))); '\u{FFFD}' }
