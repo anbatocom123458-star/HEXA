@@ -17,6 +17,8 @@ pub mod optimizer;
 pub mod codegen;
 pub mod linker;
 pub mod compiler;
+pub mod disasm;
+pub mod fmt;
 
 #[cfg(test)]
 mod tests {
