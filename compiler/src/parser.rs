@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
                 let (name, ty, value, span) = self.parse_const_body(start)?;
                 Some(Item::Const(ConstDecl { name, ty, value, span }))
             }
-            Tok::Fn => self.parse_fn(start, false, false),
+            Tok::Fn => self.parse_fn(start, false),
             Tok::Struct => self.parse_struct(start),
             Tok::Enum => self.parse_enum(start),
             Tok::Trait => self.parse_trait(start),
@@ -129,7 +129,7 @@ impl<'a> Parser<'a> {
 
     fn parse_item_tail(&mut self, start: Span, is_pub: bool) -> Option<Item> {
         match self.cur().kind {
-            Tok::Fn => self.parse_fn(start, is_pub, false),
+            Tok::Fn => self.parse_fn(start, is_pub),
             Tok::Struct => self.parse_struct_pub(start, is_pub),
             _ => {
                 self.error("E1001", "expected `fn`, `struct`, `enum`, `trait`, `impl` or `const` after visibility");
@@ -148,7 +148,7 @@ impl<'a> Parser<'a> {
         Some((name, ty, value, start))
     }
 
-    fn parse_fn(&mut self, start: Span, is_pub: bool, _unused: bool) -> Option<Item> {
+    fn parse_fn(&mut self, start: Span, is_pub: bool) -> Option<Item> {
         self.expect(Tok::Fn, "fn");
         let name = self.expect(Tok::Ident, "function name")?.text;
         let params = self.parse_params()?;
@@ -240,7 +240,7 @@ impl<'a> Parser<'a> {
         let mut methods = Vec::new();
         self.expect(Tok::LBrace, "{");
         while !self.at(Tok::RBrace) && !self.at(Tok::Eof) {
-            if let Some(Item::Fn(f)) = self.parse_fn(self.cur().span, false, false) {
+            if let Some(Item::Fn(f)) = self.parse_fn(self.cur().span, false) {
                 methods.push(f);
             } else {
                 self.advance();
@@ -268,7 +268,7 @@ impl<'a> Parser<'a> {
         let mut methods = Vec::new();
         self.expect(Tok::LBrace, "{");
         while !self.at(Tok::RBrace) && !self.at(Tok::Eof) {
-            if let Some(Item::Fn(f)) = self.parse_fn(self.cur().span, false, false) {
+            if let Some(Item::Fn(f)) = self.parse_fn(self.cur().span, false) {
                 methods.push(f);
             } else {
                 self.advance();

@@ -101,6 +101,32 @@ key, and inspected as an authenticated `.hexa` package.
 - Example programs under `examples/`.
 - Apache-2.0 license.
 
+### Fixed (code-generation and runtime hardening)
+- **Label collisions across functions** in generated assembly: labels were
+  `L{idx}` globally, so two functions each using label `L5` produced duplicate
+  symbols and miscompiled control flow. Labels are now `L{fn_symbol}_{idx}`
+  and are unique per function.
+- **`hexa_alloc` clobbered its size argument** before the `mmap` syscall
+  (`rdi` was zeroed while still holding the length), so every allocation was
+  `mmap(0)` and the first text concat segfaulted. The length is now saved
+  into `rsi` before the address register is cleared.
+- **`hexa_itoa` returned a length that included the unused terminator byte**,
+  so every printed integer/decimal/boolean gained a trailing `NUL`. The
+  returned length is now exactly the number of digit bytes written.
+- **`print_dec` loaded a garbage 1e6 constant** (the `movabs` bit pattern was
+  wrong), producing nonsense fraction digits; the correct IEEE-754 bit
+  pattern for `1000000.0` is now used.
+- **Calls leaked their argument stack slots**: `Call` pushed the returned
+  value without discarding the pushed arguments first, so any argument slot
+  was popped later as a value — the root cause of corrupted text
+  concatenation after any user-function call. `Call` now discards
+  `8 * argc` bytes of arguments before pushing the result.
+- **`print_line` on a user-function call always printed as integer**:
+  lowering consulted only prelude signatures for call return types, so
+  `print_line(classify(x))` ran the integer printer on a text pointer.
+  User-function return types are now tracked and used.
+
+### Planned (later phases)
 ### Planned (later phases)
 - Richer intermediate representation and optimization pipeline.
 - Self-hosting of the compiler.

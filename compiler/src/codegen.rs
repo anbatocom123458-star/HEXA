@@ -6,7 +6,7 @@
 //! into a native ELF executable. Nothing is transpiled: the user program is
 //! genuine native machine code.
 
-use crate::ir::{Function, Inst, Module, TypeTag};
+use crate::ir::{Function, Inst, Module};
 
 const RUNTIME: &str = include_str!("runtime_x64.s");
 
@@ -94,7 +94,8 @@ fn emit_fn(o: &mut String, f: &Function, debug: bool) {
         o.push_str(&format!("\tmovq %rax, -{}(%rbp)\n", 8 * (i + 1)));
     }
     for (idx, inst) in f.body.iter().enumerate() {
-        o.push_str(&format!("L{}:\n", idx));
+        let lname = format!("L{}_{}", sym, idx);
+        o.push_str(&format!("{}:\n", lname));
         emit_inst(o, inst, idx, &f);
     }
     o.push_str(&format!("Lret_{}:\n", sym));
@@ -184,16 +185,21 @@ fn emit_inst(o: &mut String, inst: &Inst, idx: usize, f: &Function) {
             o.push_str("\tcall hexa_concat_text\n");
             o.push_str("\tpushq %rax\n");
         }
-        Jmp(t) => o.push_str(&format!("\tjmp L{}\n", t)),
+        Jmp(t) => o.push_str(&format!("\tjmp L{}_{}\n", fn_symbol(&f.name), t)),
         Jz(t) => {
             o.push_str("\tpopq %rax\n");
             o.push_str("\ttestq %rax, %rax\n");
-            o.push_str(&format!("\tjz L{}\n", t));
+            o.push_str(&format!("\tjz L{}_{}\n", fn_symbol(&f.name), t));
         }
         Call(name, argc) => {
-            // args already pushed; result returned in rax.
-            let _ = argc;
+            // args already pushed; result returned in rax. The caller owns
+            // the argument stack slots: discard them BEFORE pushing the
+            // result, otherwise the result gets popped away and stale
+            // argument slots leak into the next stack-machine pop.
             o.push_str(&format!("\tcall {}\n", fn_symbol(name)));
+            if *argc > 0 {
+                o.push_str(&format!("\taddq ${}, %rsp\n", 8 * argc));
+            }
             o.push_str("\tpushq %rax\n");
         }
         Return => {
@@ -227,5 +233,3 @@ pub fn emit_module(module: &Module, debug: bool) -> String {
     reset_data();
     s
 }
-
-pub fn unused(_t: &TypeTag) {}

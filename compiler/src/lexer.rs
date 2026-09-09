@@ -122,14 +122,17 @@ impl<'a> Lexer<'a> {
     }
 
     fn tok(&self, start: usize, kind: Tok) -> Token {
-        Token { kind, span: Span::new(self.file_id, start, self.pos), text: String::new(), int_value: None }
+        // Punctuation tokens must carry their real source text: the
+        // formatter re-emits `token.text`, so an empty text silently
+        // drops `:`, `=`, `::`, `..`, `->`, `==` … from formatted output.
+        Token { kind, span: Span::new(self.file_id, start, self.pos), text: self.src[start..self.pos].to_string(), int_value: None }
     }
 
     fn scan_punct(&mut self, start: usize) -> Option<Token> {
         let b = self.peek();
         let one = |lex: &mut Lexer, kind: Tok| {
             lex.pos += 1;
-            Token { kind, span: Span::new(lex.file_id, start, lex.pos), text: String::new(), int_value: None }
+            Token { kind, span: Span::new(lex.file_id, start, lex.pos), text: lex.src[start..lex.pos].to_string(), int_value: None }
         };
         match b {
             b'(' => Some(one(self, Tok::LParen)),

@@ -87,8 +87,6 @@ struct SecCtx<'a> {
     policy: &'a SecurityPolicy,
     diags: &'a mut Diagnostics,
     sensitive: HashSet<String>,
-    /// nonce literal -> usage count (heuristic reuse detection)
-    nonce_literals: HashMap<String, usize>,
 }
 
 fn secret_kind_of(type_name: &str) -> Option<SecretKind> {
@@ -120,7 +118,6 @@ pub fn analyze(program: &Program, policy: &SecurityPolicy, diags: &mut Diagnosti
                 let mut ctx = SecCtx {
                     policy, diags,
                     sensitive: HashSet::new(),
-                    nonce_literals: HashMap::new(),
                 };
                 // function params that are sensitive
                 for p in &f.params {

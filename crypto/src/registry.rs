@@ -17,7 +17,8 @@ use crate::aead::{self, AeadId};
 use crate::encoding;
 use crate::error::CryptoError;
 use crate::hash::{self, HashId};
-use crate::kdf::{self, KdfId};
+use crate::kdf;
+
 use crate::random;
 use crate::{format, key};
 use std::cell::RefCell;

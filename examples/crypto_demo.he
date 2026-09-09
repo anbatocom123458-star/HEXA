@@ -1,0 +1,57 @@
+// crypto_demo.he — a small but honest HEXA program.
+//
+// Exercises what the current milestone actually runs natively:
+//   • typed let declarations
+//   • while loops, if/else, comparisons
+//   • integer arithmetic, decimal literals, boolean logic
+//   • text concatenation
+//   • user-defined functions with parameters and return values
+//   • print / print_line typed runtime calls
+//
+// The program computes a Fibonacci value, classifies it, does a decimal
+// sanity check and builds a message by concatenation. Everything below
+// compiles to native x86-64 and runs on the libc-free runtime.
+
+fn fib(n: integer) -> integer {
+    let a: integer = 0;
+    let b: integer = 1;
+    let i: integer = 0;
+    while i < n {
+        let next: integer = a + b;
+        a = b;
+        b = next;
+        i = i + 1;
+    }
+    return a;
+}
+
+fn classify(value: integer) -> text {
+    if value < 0 {
+        return "negative";
+    } else if value == 0 {
+        return "zero";
+    } else if value > 100 {
+        return "large";
+    } else {
+        return "small";
+    }
+}
+
+fn main() {
+    let n: integer = 12;
+    let f: integer = fib(n);
+    print_line("HEXA demo: fibonacci(12) = ");
+    print_line(f);
+
+    let is_even: boolean = (f % 2) == 0;
+    print_line("fib is even: ");
+    print_line(is_even);
+
+    let ratio: decimal = 2.5;
+    print_line("a decimal literal: ");
+    print_line(ratio);
+
+    let label: text = "Fibonacci(" + "n) is " + classify(f);
+    print_line(label);
+    print_line("done");
+}

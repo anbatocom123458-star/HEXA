@@ -6,7 +6,7 @@
 //! functions without a runtime binding produce a clear E3001 build error
 //! (never a silent stub).
 
-use crate::ast::{self, *};
+use crate::ast::*;
 use crate::diagnostics::{Diagnostic, Diagnostics};
 use crate::ir::{Function, Inst, Local, Module, TypeTag};
 use crate::prelude::prelude_fns;
@@ -16,10 +16,23 @@ use std::collections::HashMap;
 pub fn lower(program: &Program, diags: &mut Diagnostics) -> Option<Module> {
     let mut mod_ = Module::default();
     let mut ok = true;
+    // User-function return types so expressions like `print_line(fn(...))`
+    // lower to the correct runtime print (text/bool/dec/int).
+    let fn_rets: HashMap<String, TypeTag> = program
+        .items
+        .iter()
+        .filter_map(|item| {
+            if let Item::Fn(f) = item {
+                f.ret.as_ref().map(|t| (f.name.clone(), type_expr_tag(t)))
+            } else {
+                None
+            }
+        })
+        .collect();
     for item in &program.items {
         if let Item::Fn(f) = item {
             if let Some(body) = &f.body {
-                match lower_fn(f, body, diags) {
+                match lower_fn(f, body, diags, &fn_rets) {
                     Some(fn_) => mod_.funcs.push(fn_),
                     None => ok = false,
                 }
@@ -34,9 +47,9 @@ struct Lower<'a> {
     locals: Vec<Local>,
     slots: HashMap<String, usize>,
     body: Vec<Inst>,
-    jumps: Vec<u32>,
     ret: TypeTag,
     loop_stack: Vec<u32>,
+    fn_rets: HashMap<String, TypeTag>,
 }
 
 fn tytag(t: &Type) -> TypeTag {
@@ -52,15 +65,15 @@ fn tytag(t: &Type) -> TypeTag {
     }
 }
 
-fn lower_fn(f: &FnDecl, body: &Block, diags: &mut Diagnostics) -> Option<Function> {
+fn lower_fn(f: &FnDecl, body: &Block, diags: &mut Diagnostics, fn_rets: &HashMap<String, TypeTag>) -> Option<Function> {
     let mut l = Lower {
         diags,
         locals: Vec::new(),
         slots: HashMap::new(),
         body: Vec::new(),
-        jumps: Vec::new(),
         ret: f.ret.as_ref().map(type_expr_tag).unwrap_or(TypeTag::Void),
         loop_stack: Vec::new(),
+        fn_rets: fn_rets.clone(),
     };
     let mut params = Vec::new();
     for (i, p) in f.params.iter().enumerate() {
@@ -375,6 +388,9 @@ impl<'a> Lower<'a> {
     }
 
     fn call_ret(&self, name: &str) -> TypeTag {
+        if let Some(t) = self.fn_rets.get(name) {
+            return *t;
+        }
         for fs in prelude_fns().iter().filter(|f| f.full_name == name) {
             if let Some(r) = &fs.ret {
                 return tytag(r);

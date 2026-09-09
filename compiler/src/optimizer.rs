@@ -4,7 +4,7 @@
 //! boolean logic directly on the IR. It runs before code generation and is
 //! deterministic (output depends only on the input program).
 
-use crate::ir::{Function, Inst};
+use crate::ir::Inst;
 
 /// Optimize a module in place.
 pub fn optimize_module(module: &mut crate::ir::Module) {

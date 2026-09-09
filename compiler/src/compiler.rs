@@ -9,7 +9,7 @@ use crate::linker::{assemble_and_link, BuildTools};
 use crate::lower;
 use crate::optimizer;
 use crate::parser;
-use crate::security::analyze;
+
 use crate::security::SecurityPolicy;
 use std::path::Path;
 

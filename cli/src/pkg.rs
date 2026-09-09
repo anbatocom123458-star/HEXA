@@ -533,7 +533,7 @@ fn parse_record(line: &str) -> Option<InstalledRecord> {
     let start = line.find('{')?;
     let end = line.rfind('}')?;
     let body = &line[start + 1..end];
-    let mut get = |key: &str| -> Option<String> {
+    let get = |key: &str| -> Option<String> {
         let pat = format!("\"{}\":", key);
         let i = body.find(&pat)? + pat.len();
         let rest = body[i..].trim_start();

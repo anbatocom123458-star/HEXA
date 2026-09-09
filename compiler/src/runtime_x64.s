@@ -57,13 +57,14 @@ hexa_exit:
     .globl hexa_alloc
     .type hexa_alloc, @function
 hexa_alloc:
-    movq $9, %rax
-    xorl %edi, %edi
-    movq %rdi, %rsi
-    movq $3, %rdx
-    movq $34, %r10
-    movq $-1, %r8
-    xorq %r9, %r9
+    # mmap(addr=0, length=rdi, prot=RW, flags=ANON|PRIVATE, fd=-1, off=0)
+    movq %rdi, %rsi     # length (save BEFORE addr is zeroed)
+    movq $9, %rax       # mmap
+    xorl %edi, %edi     # addr = NULL
+    movq $3, %rdx       # prot = PROT_READ|PROT_WRITE
+    movq $34, %r10      # flags = MAP_PRIVATE|MAP_ANONYMOUS
+    movq $-1, %r8       # fd
+    xorq %r9, %r9       # offset
     syscall
     ret
 
@@ -154,9 +155,11 @@ hexa_itoa_str:
     decq %rsi
     movb $45, (%rsi)
 .Litoa_done:
+    # length = (buf+31) - rsi: count of written bytes (no trailing fill).
+    # rsi is an absolute address; the original +1 included the unused
+    # terminator byte and made every print gain a trailing NUL.
     leaq hexa_itoa_buf+31(%rip), %rdx
     subq %rsi, %rdx
-    incq %rdx
     popq %rbp
     ret
 
@@ -272,9 +275,9 @@ hexa_print_dec:
     movq 24(%rsp), %rax
     cvtsi2sd %rax, %xmm1
     subsd %xmm1, %xmm2
-    movl $0, 16(%rsp)
-    movl $1091567616, 20(%rsp)
-    movq 16(%rsp), %xmm3
+    # fraction digits = frac * 1e6 (double bits of 1000000.0)
+    movq $0x412E848000000000, %rax
+    movq %rax, %xmm3
     mulsd %xmm3, %xmm2
     cvttsd2si %xmm2, %rax
     movq %rax, %rdi

@@ -8,8 +8,8 @@ use hexa_compiler::compiler::{compile, BuildMode, Options};
 use hexa_compiler::diagnostics::SourceMap;
 use hexa_crypto::cipher::{self, KeySource, LayerPolicy};
 use hexa_crypto::error::CryptoError;
-use hexa_crypto::{aead, encoding, format, key, random};
-use std::io::{BufRead, Read, Write};
+use hexa_crypto::{aead, format, key, random};
+use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use zeroize::Zeroizing;
@@ -748,7 +748,6 @@ fn cmd_decrypt(args: &[String]) -> i32 {
     let mut output: Option<String> = None;
     let mut key_file: Option<String> = None;
     let mut prompt_key = false;
-    let mut password: Option<Zeroizing<String>> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {

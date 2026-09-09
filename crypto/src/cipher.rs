@@ -26,7 +26,7 @@
 use crate::aead::{self, AeadId};
 use crate::error::CryptoError;
 use crate::format::{self, HexaFile, LayerRecord};
-use crate::kdf::{self, KdfId};
+use crate::kdf;
 use crate::secret::ct_eq;
 use zeroize::Zeroizing;
 
@@ -111,7 +111,7 @@ pub fn encrypt_layers(
         KeySource::Password(_) => {
             let params = kdf::Argon2Params::default();
             let salt = crate::random::salt16()?;
-            (salt.to_vec(), Some(KdfId::Argon2id), format::kdf_param_word(params.m_cost_kib, params.t_cost))
+            (salt.to_vec(), Some(crate::kdf::KdfId::Argon2id), format::kdf_param_word(params.m_cost_kib, params.t_cost))
         }
         KeySource::RawKey(_) => {
             let salt = crate::random::salt16()?;
