@@ -1,0 +1,33 @@
+{
+  "name": "hexa-language",
+  "displayName": "HEXA Language Support",
+  "description": "Syntax highlighting, language configuration and file icons for HEXA: .he sources, .hexa encrypted containers and .hxpkg packages.",
+  "version": "0.1.0",
+  "publisher": "hexa-toolchain",
+  "license": "Apache-2.0",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Programming Languages", "Themes"],
+  "keywords": ["hexa", "language", "security", "encryption"],
+  "repository": { "type": "git", "url": "https://github.com/anbatocom123458-star/HEXA" },
+  "icon": "icons/hexa-file.svg",
+  "contributes": {
+    "languages": [
+      {
+        "id": "hexa",
+        "aliases": ["HEXA", "hexa"],
+        "extensions": [".he"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "hexa",
+        "scopeName": "source.hexa",
+        "path": "./syntaxes/hexa.tmLanguage.json"
+      }
+    ],
+    "iconThemes": [
+      { "id": "hexa-icons", "label": "HEXA File Icons", "path": "./themes/hexa-icon-theme.json" }
+    ]
+  }
+}

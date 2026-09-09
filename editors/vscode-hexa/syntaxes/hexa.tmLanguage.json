@@ -1,0 +1,103 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "HEXA",
+  "scopeName": "source.hexa",
+  "fileTypes": ["he"],
+  "patterns": [
+    { "include": "#block_comment" },
+    { "include": "#line_comment" },
+    { "include": "#string_byte" },
+    { "include": "#string_double" },
+    { "include": "#string_char" },
+    { "include": "#number" },
+    { "include": "#attribute" },
+    { "include": "#fn_decl" },
+    { "include": "#namespace" },
+    { "include": "#support_function" },
+    { "include": "#keywords" },
+    { "include": "#storage_modifier" },
+    { "include": "#storage_type" },
+    { "include": "#boolean" },
+    { "include": "#operators" }
+  ],
+  "repository": {
+    "block_comment": {
+      "patterns": [
+        {
+          "name": "comment.block.hexa",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "applyEndPatternLast": true,
+          "patterns": [{ "include": "#block_comment" }]
+        }
+      ]
+    },
+    "line_comment": {
+      "name": "comment.line.double-slash.hexa",
+      "match": "//.*$"
+    },
+    "string_byte": {
+      "name": "string.quoted.double.byte.hexa",
+      "begin": "\\bb\"",
+      "end": "\"",
+      "patterns": [{ "match": "\\\\(?:[nrt\\\\'\"0xu]|x[0-9a-fA-F]{2}|u\\{[0-9a-fA-F]+\\})", "name": "constant.character.escape.hexa" }]
+    },
+    "string_double": {
+      "name": "string.quoted.double.hexa",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [{ "match": "\\\\(?:[nrt\\\\'\"0xu]|x[0-9a-fA-F]{2}|u\\{[0-9a-fA-F]+\\})", "name": "constant.character.escape.hexa" }]
+    },
+    "string_char": {
+      "name": "string.quoted.single.hexa",
+      "begin": "'",
+      "end": "'",
+      "patterns": [{ "match": "\\\\(?:[nrt\\\\'\"0xu]|x[0-9a-fA-F]{2}|u\\{[0-9a-fA-F]+\\})", "name": "constant.character.escape.hexa" }]
+    },
+    "number": {
+      "match": "\\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|\\d[\\d_]*\\.\\d[\\d_]*|\\d[\\d_]*)\\b",
+      "name": "constant.numeric.hexa"
+    },
+    "attribute": {
+      "match": "#(?:\\[[^\\]]*\\]|#[a-zA-Z_][a-zA-Z0-9_]*\\b|[a-zA-Z_][a-zA-Z0-9_]*\\b)",
+      "captures": {
+        "0": { "name": "meta.annotation.hexa" }
+      }
+    },
+    "fn_decl": {
+      "match": "\\b(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.hexa" },
+        "2": { "name": "entity.name.function.hexa" }
+      }
+    },
+    "namespace": {
+      "match": "\\b(?:std|crypto|file|random|input|secret|hexa)(?=\\.)",
+      "name": "support.namespace.hexa"
+    },
+    "support_function": {
+      "match": "\\b(?:print|print_line|len|to_text|assert)\\b",
+      "name": "support.function.hexa"
+    },
+    "keywords": {
+      "name": "keyword.control.hexa",
+      "match": "\\b(?:fn|let|if|else|for|while|match|return|struct|enum|trait|impl|import|module|as|in|await)\\b"
+    },
+    "storage_modifier": {
+      "name": "storage.modifier.hexa",
+      "match": "\\b(?:mut|pub|private|async|const)\\b"
+    },
+    "storage_type": {
+      "name": "storage.type.hexa",
+      "match": "\\b(?:text|integer|decimal|number|boolean|bytes|char|secret|key|public_key|private_key|plaintext|ciphertext|hash|signature|nonce|salt|apikey|password|credential)\\b"
+    },
+    "boolean": {
+      "name": "constant.language.boolean.hexa",
+      "match": "\\b(?:true|false)\\b"
+    },
+    "operators": {
+      "match": "(?:=>|->|::|\\.\\.|==|!=|<=|>=|&&|\\|\\||=|!|<|>|\\+|-|\\*|/|%|\\?|&|\\|)",
+      "name": "keyword.operator.hexa"
+    }
+  }
+}

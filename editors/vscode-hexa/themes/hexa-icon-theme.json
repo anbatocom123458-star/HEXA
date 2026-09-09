@@ -1,0 +1,16 @@
+{
+  "iconDefinitions": {
+    "_he": { "iconPath": "../icons/he-source.svg" },
+    "_hexa": { "iconPath": "../icons/hexa-encrypted.svg" },
+    "_pkg": { "iconPath": "../icons/hexa-file.svg" },
+    "_exe": { "iconPath": "../icons/hexa-executable.svg" }
+  },
+  "fileExtensions": {
+    "he": "_he",
+    "hexa": "_hexa",
+    "hxpkg": "_pkg"
+  },
+  "fileNames": {
+    "hexa.toml": "_he"
+  }
+}

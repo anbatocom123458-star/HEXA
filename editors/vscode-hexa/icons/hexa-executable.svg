@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!--
+    HEXA executable icon: hexagon + play triangle (a compiled native
+    program). Same palette as the other HEXA file icons.
+    Vector artwork original to HEXA (Apache-2.0).
+  -->
+  <defs>
+    <linearGradient id="exeTile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12345F"/>
+      <stop offset="1" stop-color="#0B1E3A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- hexagonal tile -->
+  <polygon
+    points="256,16 464,136 464,376 256,496 48,376 48,136"
+    fill="url(#exeTile)" stroke="#FFB93B" stroke-width="18" stroke-linejoin="round"/>
+
+  <!-- play triangle -->
+  <polygon points="200,176 200,336 344,256" fill="#FFE9B8"/>
+</svg>

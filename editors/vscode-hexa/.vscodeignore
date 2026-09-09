@@ -1,0 +1,4 @@
+.vscode/**
+**/*.md
+!README.md
+.gitignore

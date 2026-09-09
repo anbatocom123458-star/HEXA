@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!--
+    Icon for .he files (HEXA Source File): the HEXA hexagon mark with a
+    source-code slash pair inside, over the dawn-gradient hexagon tile.
+    Vector artwork original to HEXA (Apache-2.0).
+  -->
+  <defs>
+    <linearGradient id="heTile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#17427A"/>
+      <stop offset="1" stop-color="#0B1E3A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- hexagonal tile -->
+  <polygon
+    points="256,16 464,136 464,376 256,496 48,376 48,136"
+    fill="url(#heTile)" stroke="#FFB93B" stroke-width="18" stroke-linejoin="round"/>
+
+  <!-- source-code slashes -->
+  <g stroke="#FFE9B8" stroke-width="34" stroke-linecap="round">
+    <line x1="216" y1="176" x2="152" y2="336"/>
+    <line x1="296" y1="176" x2="232" y2="336"/>
+  </g>
+
+  <!-- dot (light of knowledge) -->
+  <circle cx="356" cy="336" r="22" fill="#FFB93B"/>
+</svg>

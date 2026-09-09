@@ -1,0 +1,7 @@
+{
+  // HEXA workspace: use the extension's file icon theme so .he/.hexa/.hxpkg
+  // files get the branded icons instead of the generic file icon.
+  "workbench.iconTheme": "hexa-icons",
+  // Richer colors on top of the TextMate grammar when available.
+  "editor.semanticHighlighting.enabled": true
+}

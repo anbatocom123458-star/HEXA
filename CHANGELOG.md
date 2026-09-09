@@ -80,6 +80,15 @@ key, and inspected as an authenticated `.hexa` package.
     best-effort freedesktop integration (`.desktop` files, MIME type
     `x-hexa/hexa-package`, embedded SVG icons).
 
+#### Editor (VS Code)
+- `editors/vscode-hexa/`: HEXA Language Support extension — TextMate grammar
+  (`source.hexa`) matching the real lexer (keywords, security type lattice,
+  string/byte-string/char literals with escapes, hex/bin/dec numbers, nested
+  block comments, attributes, prelude functions), language configuration
+  (auto-closing pairs, `//` comments, region folding), and a file-icon theme
+  for `.he`, `.hexa`, `.hxpkg`, `hexa.toml`. Grammar verified by tokenizing a
+  full-feature sample with `vscode-textmate`.
+
 #### `.hexa` file format
 - Versioned, authenticated binary format: `MAGIC "HEXA"`, `VERSION`, `FLAGS`,
   `ALGORITHM`, `KDF` + params, `SALT`, `NONCE`, `LAYER_COUNT`, `METADATA`,

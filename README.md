@@ -153,7 +153,27 @@ HEXA/
 ├── cli/               Rust crate: the `hexa` command-line tool
 ├── tests/             integration test harness
 ├── tools/             installer scripts
+├── editors/           editor extensions (VS Code: syntax + icons)
 └── assets/            icon and graphic assets
+```
+
+## Editor support
+
+The VS Code extension in [`editors/vscode-hexa/`](editors/vscode-hexa/) provides:
+
+- **Syntax highlighting** for `.he` sources (keywords, security type lattice,
+  strings/byte-strings/chars, nested comments, numbers, prelude functions).
+- **Language configuration** — auto-closing pairs, comment toggling, region
+  folding.
+- **File icons** for `.he`, `.hexa`, `.hxpkg` and `hexa.toml`.
+
+Build and install it:
+
+```bash
+cd editors/vscode-hexa
+npx @vscode/vsce package        # builds hexa-language-0.1.0.vsix
+code --install-extension hexa-language-0.1.0.vsix
+# then: Ctrl+Shift+P → "Preferences: File Icon Theme" → HEXA File Icons
 ```
 
 ---
