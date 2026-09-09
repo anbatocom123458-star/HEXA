@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!--
+    Icon for .hexa files (HEXA Encrypted Data): a sealed hexagonal lock
+    (padlock body is a hexagon — encrypted data is NOT plaintext source)
+    over the night-blue tile. Vector artwork original to HEXA.
+  -->
+  <defs>
+    <linearGradient id="hexaTile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0F2B50"/>
+      <stop offset="1" stop-color="#081527"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded-square tile -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#hexaTile)" stroke="#FFB93B" stroke-width="14"/>
+
+  <!-- shackle -->
+  <path d="M 176 236 V 188 a 80 80 0 0 1 160 0 V 236"
+        fill="none" stroke="#FFE9B8" stroke-width="30" stroke-linecap="round"/>
+
+  <!-- hexagonal padlock body -->
+  <polygon
+    points="256,220 372,286 372,390 256,456 140,390 140,286"
+    fill="#FFB93B" stroke="#FFE9B8" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- keyhole -->
+  <circle cx="256" cy="330" r="26" fill="#081527"/>
+  <rect x="244" y="340" width="24" height="52" rx="10" fill="#081527"/>
+
+  <!-- sealed badge: three dots = authenticated layers -->
+  <g fill="#081527">
+    <circle cx="204" cy="404" r="9"/>
+    <circle cx="256" cy="404" r="9" opacity="0.55"/>
+    <circle cx="308" cy="404" r="9" opacity="0.3"/>
+  </g>
+</svg>

@@ -352,7 +352,7 @@ hexa_rt_ensure_ns:
     pushq %r15
     subq $8, %rsp
     cmpq $0, hexa_rt_checked(%rip)
-    jne .Lren_done
+    jne .Lren_already
     movq $1, hexa_rt_checked(%rip)
     # -- step 1: dlopen("libhexa_runtime.so", RTLD_NOW)
     leaq hexa_s_libhexa(%rip), %rdi
@@ -386,19 +386,24 @@ hexa_rt_ensure_ns:
     call *%r11
     testq %rax, %rax
     jnz .Lren_fail
-    jmp .Lren_ok
+    jmp .Lren_already
 .Lren_fail:
     xorl %eax, %eax
     movq %rax, hexa_rt_handle(%rip)
     movq %rax, hexa_fn_init(%rip)
-.Lren_ok:
+.Lren_already:
+    # The early-exit path (runtime already initialized) and the bootstrap
+    # path must unwind the SAME prologue: five saved registers plus the
+    # alignment slot. A previous version jumped from the early-exit test
+    # straight to `popq %rbp`, skipping the five register pops, so the
+    # final `ret` read a saved register as the return address and jumped
+    # into unmapped memory (SEGV before any program output).
     addq $8, %rsp
     popq %r15
     popq %r14
     popq %r13
     popq %r12
     popq %rbx
-.Lren_done:
     popq %rbp
     ret
 

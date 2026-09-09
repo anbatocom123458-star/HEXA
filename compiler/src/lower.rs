@@ -76,6 +76,12 @@ fn lower_fn(f: &FnDecl, body: &Block, diags: &mut Diagnostics) -> Option<Functio
     if l.ret != TypeTag::Void {
         // implicit 0/default return when control reaches end
         l.body.push(default_of(l.ret));
+    } else if f.name == "main" {
+        // `main` with no explicit return value must still exit with status 0:
+        // the Return instruction pops into %rax and hexa_c_main passes %rax
+        // to exit(2), so a Void main needs an explicit 0 or the process exit
+        // status would be whatever garbage was left on the stack.
+        l.body.push(Inst::PushInt(0));
     }
     l.body.push(Inst::Return);
     Some(Function { name: f.name.clone(), params, ret: l.ret, locals: l.locals.clone(), body: l.body })

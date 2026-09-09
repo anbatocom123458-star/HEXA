@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!--
+    HEXA file-type icon: hexagon + key + rising sun/light rays.
+    Theme colors: night blue #0B1E3A, dawn gold #FFB93B, light #FFE9B8.
+    Vector artwork original to HEXA (Apache-2.0), no third-party assets.
+  -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#12345F"/>
+      <stop offset="1" stop-color="#0B1E3A"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.62" r="0.55">
+      <stop offset="0" stop-color="#FFE9B8"/>
+      <stop offset="1" stop-color="#FFB93B"/>
+    </radialGradient>
+  </defs>
+
+  <!-- rounded-square tile -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#sky)"/>
+
+  <!-- sun disc -->
+  <circle cx="256" cy="256" r="150" fill="url(#sun)"/>
+
+  <!-- rising-sun rays (light of knowledge) -->
+  <g stroke="#FFE9B8" stroke-width="14" stroke-linecap="round" opacity="0.9">
+    <line x1="256" y1="52"  x2="256" y2="88"/>
+    <line x1="256" y1="424" x2="256" y2="460"/>
+    <line x1="52"  y1="256" x2="88"  y2="256"/>
+    <line x1="424" y1="256" x2="460" y2="256"/>
+    <line x1="117" y1="117" x2="143" y2="143"/>
+    <line x1="369" y1="369" x2="395" y2="395"/>
+    <line x1="117" y1="395" x2="143" y2="369"/>
+    <line x1="369" y1="143" x2="395" y2="117"/>
+  </g>
+
+  <!-- key shaft (horizontal) -->
+  <rect x="140" y="240" width="176" height="32" rx="16" fill="#0B1E3A"/>
+  <!-- key ring -->
+  <circle cx="152" cy="256" r="42" fill="none" stroke="#0B1E3A" stroke-width="30"/>
+  <!-- key teeth -->
+  <rect x="284" y="272" width="30" height="34" rx="6" fill="#0B1E3A"/>
+  <rect x="334" y="272" width="30" height="46" rx="6" fill="#0B1E3A"/>
+
+  <!-- hexagon outline (the HEXA mark) -->
+  <polygon
+    points="256,66 415,158 415,354 256,446 97,354 97,158"
+    fill="none" stroke="#FFB93B" stroke-width="26" stroke-linejoin="round"/>
+</svg>

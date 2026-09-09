@@ -56,12 +56,29 @@ key, and inspected as an authenticated `.hexa` package.
 #### CLI (`hexa`)
 - Commands: `version`, `build`, `run`, `check`, `format`, `encrypt`,
   `decrypt`, `inspect`, `key show`, `doctor`, `package`, `install`,
-  `uninstall`, `disassemble`, `decompile`.
+  `list`, `remove`/`uninstall`, `update`, `uninstall`, `disassemble`,
+  `decompile`.
 - **One-time key lifecycle**: `hexa encrypt file` generates a key, displays it
   exactly once as `HX-<hex>` with a warning banner, destroys its displayable
   copy, and never stores or recovers it.
 - `hexa key show` always fails with `EKEY-004` — there is deliberately no way to
   recover a generated key.
+- **Package manager (fail-closed by design)**:
+  - `hexa.toml` manifests (`[package]` name/version/entry_point) with strict
+    validation; a manifest can also be inferred from a single `.he` file.
+  - `.hxpkg` artifact v1 (`HXPKG`): TOML manifest + file table with per-file
+    SHA-256 and a whole-file SHA-256 trailer; absolute paths, `..`, hidden
+    components and backslashes are rejected; size/count ceilings enforced
+    before anything is trusted.
+  - `hexa install` fully validates the archive, extracts to a staging
+    directory, compiles the packaged entry point with the real compiler and
+    only then commits — a package whose program does not compile is never
+    installed. Double installs are refused; `hexa update` replaces in place.
+  - Install layout under `$HEXA_HOME` (default `~/.hexa`):
+    `pkg/<name>/<version>/`, a generated `bin/<name>` launcher shim, an
+    append-only JSON-lines registry with removal tombstones, and
+    best-effort freedesktop integration (`.desktop` files, MIME type
+    `x-hexa/hexa-package`, embedded SVG icons).
 
 #### `.hexa` file format
 - Versioned, authenticated binary format: `MAGIC "HEXA"`, `VERSION`, `FLAGS`,

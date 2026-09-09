@@ -14,6 +14,24 @@ use std::path::{Path, PathBuf};
 use std::process::exit;
 use zeroize::Zeroizing;
 
+mod pkg;
+mod ui;
+
+/// Print an error line: bold-red `error:` prefix followed by the message,
+/// styled only when stderr is an interactive terminal with color enabled.
+macro_rules! errorln {
+    ($($arg:tt)*) => {
+        eprintln!("{} {}", ui::err_prefix(), ui::err_text(&format!($($arg)*)))
+    };
+}
+
+/// Print a success line (green check-free text) when colors are enabled.
+macro_rules! successln {
+    ($($arg:tt)*) => {
+        println!("{}", ui::ok_out(&format!($($arg)*)))
+    };
+}
+
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const LANGUAGE_VERSION: &str = "0.1";
 pub const HEXA_FORMAT_VERSION: u8 = format::FORMAT_VERSION;
@@ -35,14 +53,248 @@ fn main() {
         "decompile" => cmd_decompile(rest),
         "doctor" => cmd_doctor(),
         "key" => cmd_key(rest),
+        "package" => cmd_package(rest),
+        "install" => cmd_install(rest),
+        "list" => cmd_list(),
+        "remove" | "uninstall" => cmd_remove(rest),
+        "update" => cmd_update(rest),
         "help" | "--help" | "-h" | "" => cmd_help(),
         "--version" | "-V" => cmd_version(),
         other => {
-            eprintln!("error: unknown command '{}' (see: hexa help)", other);
+            errorln!("unknown command '{}' (see: hexa help)", other);
             2
         }
     };
     exit(code);
+}
+
+fn cmd_package(args: &[String]) -> i32 {
+    let dir = args
+        .first()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
+    if !dir.is_dir() {
+        errorln!("'{}' is not a directory", dir.display());
+        return 1;
+    }
+    let manifest_path = dir.join(pkg::MANIFEST_FILE);
+    let manifest = if manifest_path.is_file() {
+        let text = match std::fs::read_to_string(&manifest_path) {
+            Ok(t) => t,
+            Err(e) => {
+                errorln!("cannot read {}: {}", manifest_path.display(), e);
+                return 1;
+            }
+        };
+        match pkg::PackageManifest::parse(&text) {
+            Ok(m) => m,
+            Err(e) => {
+                errorln!("{}: {}", pkg::MANIFEST_FILE, e);
+                return 1;
+            }
+        }
+    } else if let Some(src) = find_single_source(&dir) {
+        // No manifest: package the lone .he file with derived metadata.
+        match pkg::PackageManifest::from_single_file(&src) {
+            Ok(m) => m,
+            Err(e) => {
+                errorln!("{}", e);
+                return 1;
+            }
+        }
+    } else {
+        errorln!(
+            "no {} found in {} (and no single .he file to infer one from)",
+            pkg::MANIFEST_FILE,
+            dir.display()
+        );
+        return 1;
+    };
+    match pkg::collect_sources(&dir) {
+        Ok(files) => {
+            if !files.iter().any(|f| f.path == manifest.entry_point) {
+                errorln!(
+                    "entry_point '{}' not found among the project sources",
+                    manifest.entry_point
+                );
+                return 1;
+            }
+            let archive = pkg::PackageArchive {
+                manifest: manifest.clone(),
+                files,
+            };
+            let out = dir.join(format!("{}-{}.hxpkg", manifest.name, manifest.version));
+            let bytes = archive.encode();
+            if let Err(e) = std::fs::write(&out, &bytes) {
+                errorln!("cannot write {}: {}", out.display(), e);
+                return 1;
+            }
+            successln!(
+                "packaged {} v{} ({} files, {} bytes) -> {}",
+                manifest.name,
+                manifest.version,
+                archive.files.len(),
+                bytes.len(),
+                out.display()
+            );
+            0
+        }
+        Err(e) => {
+            errorln!("{}", e);
+            1
+        }
+    }
+}
+
+/// The only `.he` file directly in `dir`, if any (used when there is no
+/// hexa.toml). Subdirectories are ignored to keep inference predictable.
+fn find_single_source(dir: &Path) -> Option<String> {
+    let mut found: Option<String> = None;
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_file() && p.extension().map(|e| e == "he").unwrap_or(false) {
+            if found.is_some() {
+                return None; // ambiguous: two or more top-level sources
+            }
+            found = p.file_name().map(|n| n.to_string_lossy().to_string());
+        }
+    }
+    found
+}
+
+fn read_archive_file(path: &str) -> Result<pkg::PackageArchive, i32> {
+    if !Path::new(path).is_file() {
+        errorln!("package file '{}' does not exist", path);
+        return Err(1);
+    }
+    let bytes = match std::fs::read(path) {
+        Ok(b) => b,
+        Err(e) => {
+            errorln!("cannot read {}: {}", path, e);
+            return Err(1);
+        }
+    };
+    match pkg::decode_archive(&bytes) {
+        Ok(a) => Ok(a),
+        Err(e) => {
+            errorln!("package rejected: {}", e);
+            Err(1)
+        }
+    }
+}
+
+fn cmd_install(args: &[String]) -> i32 {
+    let Some(path) = args.first() else {
+        errorln!("usage: hexa install <package.hxpkg>");
+        return 2;
+    };
+    let archive = match read_archive_file(path) {
+        Ok(a) => a,
+        Err(code) => return code,
+    };
+    let m = &archive.manifest;
+    match pkg::install_archive(&archive) {
+        Ok(dest) => {
+            successln!("installed '{}' v{}", m.name, m.version);
+            println!("  location: {}", ui::dim_out(&dest.display().to_string()));
+            println!(
+                "  launcher: {}",
+                ui::dim_out(&pkg::bin_root().join(&m.name).display().to_string())
+            );
+            println!(
+                "  next: {}",
+                ui::dim_out(&format!(
+                    "add {} to your PATH, then run `{}`",
+                    pkg::bin_root().display(),
+                    m.name
+                ))
+            );
+            0
+        }
+        Err(e) => {
+            errorln!("install failed: {}", e);
+            1
+        }
+    }
+}
+
+fn cmd_list() -> i32 {
+    let recs = pkg::registry_load();
+    let live = pkg::live_packages(&recs);
+    if live.is_empty() {
+        println!("no packages installed");
+        println!(
+            "  tip: {}",
+            ui::dim_out("hexa package [dir] && hexa install <file.hxpkg>")
+        );
+        return 0;
+    }
+    println!("{} package(s) installed:", live.len());
+    for r in &live {
+        let when = if r.installed_at.is_empty() {
+            String::new()
+        } else {
+            format!("  installed_at unix {}", r.installed_at)
+        };
+        println!("  {} v{}{}", ui::ok_out(&r.name), ui::dim_out(&r.version.clone()), when);
+    }
+    0
+}
+
+fn cmd_remove(args: &[String]) -> i32 {
+    let Some(name) = args.first() else {
+        errorln!("usage: hexa remove <package-name>");
+        return 2;
+    };
+    match pkg::remove_package(name) {
+        Ok(shim) => {
+            successln!("removed '{}'", name);
+            println!("  deleted: {}", ui::dim_out(&shim));
+            0
+        }
+        Err(e) => {
+            errorln!("{}", e);
+            1
+        }
+    }
+}
+
+fn cmd_update(args: &[String]) -> i32 {
+    let Some(path) = args.first() else {
+        errorln!("usage: hexa update <package.hxpkg>");
+        return 2;
+    };
+    let archive = match read_archive_file(path) {
+        Ok(a) => a,
+        Err(code) => return code,
+    };
+    let m = &archive.manifest;
+    let recs = pkg::registry_load();
+    if pkg::is_live(&recs, &m.name) {
+        let old = recs
+            .iter()
+            .rev()
+            .find(|r| r.name == m.name)
+            .map(|r| r.version.clone())
+            .unwrap_or_default();
+        if let Err(e) = pkg::remove_package(&m.name) {
+            errorln!("update failed while replacing the old version: {}", e);
+            return 1;
+        }
+        println!("  replacing v{}", ui::dim_out(&old));
+    }
+    match pkg::install_archive(&archive) {
+        Ok(dest) => {
+            successln!("updated '{}' to v{}", m.name, m.version);
+            println!("  location: {}", ui::dim_out(&dest.display().to_string()));
+            0
+        }
+        Err(e) => {
+            errorln!("update failed: {}", e);
+            1
+        }
+    }
 }
 
 fn cmd_help() -> i32 {
@@ -66,6 +318,13 @@ COMMANDS:
     doctor                  Check the native build environment
     key                     Key management (recovery is refused by design)
 
+PACKAGES:
+    package [dir]           Build a .hxpkg from a hexa.toml project
+    install <pkg.hxpkg>     Verify + compile + install under $HEXA_HOME
+    list                    Show installed packages
+    remove <name>           Uninstall a package (alias: uninstall)
+    update <pkg.hxpkg>      Replace an installed package in one step
+
 ENCRYPTION:
     hexa encrypt secret.txt [--algorithm aes256-gcm|chacha20-poly1305]
                              [--layers N] [--output out.hexa]
@@ -80,8 +339,16 @@ A generated key is displayed EXACTLY ONCE and is never recoverable.
 }
 
 fn cmd_version() -> i32 {
-    println!("HEXA compiler {} (language {})", VERSION, LANGUAGE_VERSION);
-    println!(".hexa format version {}", HEXA_FORMAT_VERSION);
+    println!(
+        "{} compiler {} (language {})",
+        ui::bold_out("HEXA"),
+        ui::accent_out(VERSION),
+        ui::accent_out(LANGUAGE_VERSION)
+    );
+    println!(
+        ".hexa format version {}",
+        ui::accent_out(&HEXA_FORMAT_VERSION.to_string())
+    );
     0
 }
 
@@ -131,7 +398,7 @@ fn parse_common(args: &[String]) -> Result<CommonArgs, String> {
 
 fn load_source(path: &str) -> Result<String, i32> {
     std::fs::read_to_string(path).map_err(|e| {
-        eprintln!("error[E3001]: cannot read '{}': {}", path, e);
+        errorln!("E3001: cannot read '{}': {}", path, e);
         1
     })
 }
@@ -150,7 +417,7 @@ fn make_options(c: &CommonArgs, mode: BuildMode) -> Options {
             "strict" => hexa_compiler::security::SecurityPolicy::strict(),
             "paranoid" => hexa_compiler::security::SecurityPolicy::paranoid(),
             other => {
-                eprintln!("error: unknown policy '{}' (standard|strict|paranoid)", other);
+                errorln!("unknown policy '{}' (standard|strict|paranoid)", other);
                 return opts;
             }
         };
@@ -162,12 +429,12 @@ fn cmd_build(args: &[String], check_only: bool) -> i32 {
     let c = match parse_common(args) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error: {}", e);
+            errorln!("{}", e);
             return 2;
         }
     };
     if c.files.len() != 1 {
-        eprintln!("error: exactly one source file required");
+        errorln!("exactly one source file required");
         return 2;
     }
     let path = &c.files[0];
@@ -188,14 +455,17 @@ fn cmd_build(args: &[String], check_only: bool) -> i32 {
         print!("{}", rendered);
     }
     if !comp.ok {
-        eprintln!("error: could not compile {}", path);
+        errorln!("could not compile {}", path);
         return 1;
     }
     if mode == BuildMode::Check {
+        if comp.ok {
+            println!("{}", ui::ok_out("OK"));
+        }
         return 0;
     }
     if let Some(exe) = &comp.executable {
-        println!("built {}", exe.display());
+        println!("{}", ui::ok_out(&format!("built {}", exe.display())));
     }
     0
 }
@@ -204,12 +474,12 @@ fn cmd_run(args: &[String]) -> i32 {
     let c = match parse_common(args) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error: {}", e);
+            errorln!("{}", e);
             return 2;
         }
     };
     if c.files.len() != 1 {
-        eprintln!("error: exactly one source file required");
+        errorln!("exactly one source file required");
         return 2;
     }
     let path = c.files[0].clone();
@@ -239,7 +509,7 @@ fn cmd_run(args: &[String]) -> i32 {
     match status {
         Ok(s) => s.code().unwrap_or(1),
         Err(e) => {
-            eprintln!("error: failed to run {}: {}", exe.display(), e);
+            errorln!("failed to run {}: {}", exe.display(), e);
             1
         }
     }
@@ -253,12 +523,12 @@ fn cmd_format(args: &[String]) -> i32 {
     let c = match parse_common(args) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error: {}", e);
+            errorln!("{}", e);
             return 2;
         }
     };
     if c.files.len() != 1 {
-        eprintln!("error: exactly one source file required");
+        errorln!("exactly one source file required");
         return 2;
     }
     let path = &c.files[0];
@@ -271,22 +541,22 @@ fn cmd_format(args: &[String]) -> i32 {
         Some(formatted) => {
             if c.check_only {
                 if formatted == src {
-                    println!("{}: formatted", path);
+                    println!("{}: {}", path, ui::ok_out("formatted"));
                     0
                 } else {
-                    println!("{}: not formatted (run `hexa format {}`)", path, path);
+                    println!("{}: {} (run `hexa format {}`)", path, ui::warn_out("not formatted"), path);
                     1
                 }
             } else {
                 if std::fs::write(path, &formatted).is_err() {
-                    eprintln!("error: cannot write {}", path);
+                    errorln!("cannot write {}", path);
                     return 1;
                 }
                 0
             }
         }
         None => {
-            eprintln!("error: cannot format {}", path);
+            errorln!("cannot format {}", path);
             return 1;
         }
     }
@@ -310,7 +580,7 @@ fn cmd_encrypt(args: &[String]) -> i32 {
                 match args.get(i).and_then(|s| aead::AeadId::from_name(s)) {
                     Some(a) => algorithm = a,
                     None => {
-                        eprintln!("error: unknown algorithm (supported: aes256-gcm, chacha20-poly1305)");
+                        errorln!("unknown algorithm (supported: aes256-gcm, chacha20-poly1305)");
                         return 2;
                     }
                 }
@@ -320,7 +590,7 @@ fn cmd_encrypt(args: &[String]) -> i32 {
                 match args.get(i).and_then(|s| s.parse::<u32>().ok()) {
                     Some(n) if n >= 1 => layers = n,
                     _ => {
-                        eprintln!("error: --layers requires a positive integer");
+                        errorln!("--layers requires a positive integer");
                         return 2;
                     }
                 }
@@ -343,7 +613,7 @@ fn cmd_encrypt(args: &[String]) -> i32 {
                             let mut pw = match String::from_utf8(bytes) {
                                 Ok(p) => p,
                                 Err(_) => {
-                                    eprintln!("error: password file is not valid UTF-8");
+                                    errorln!("password file is not valid UTF-8");
                                     return 2;
                                 }
                             };
@@ -353,12 +623,12 @@ fn cmd_encrypt(args: &[String]) -> i32 {
                             password = Some(pw);
                         }
                         Err(e) => {
-                            eprintln!("error: cannot read password file: {}", e);
+                            errorln!("cannot read password file: {}", e);
                             return 1;
                         }
                     },
                     None => {
-                        eprintln!("error: --password-file requires a path");
+                        errorln!("--password-file requires a path");
                         return 2;
                     }
                 }
@@ -366,7 +636,7 @@ fn cmd_encrypt(args: &[String]) -> i32 {
             "--yes" | "-y" => assume_yes = true,
             other => {
                 if file.is_some() {
-                    eprintln!("error: unexpected argument '{}'", other);
+                    errorln!("unexpected argument '{}'", other);
                     return 2;
                 }
                 file = Some(other.to_string());
@@ -377,14 +647,14 @@ fn cmd_encrypt(args: &[String]) -> i32 {
     let file = match file {
         Some(f) => f,
         None => {
-            eprintln!("error: no input file (usage: hexa encrypt <file> [options])");
+            errorln!("no input file (usage: hexa encrypt <file> [options])");
             return 2;
         }
     };
     let plaintext = match std::fs::read(&file) {
         Ok(d) => d,
         Err(e) => {
-            eprintln!("error: cannot read '{}': {}", file, e);
+            errorln!("cannot read '{}': {}", file, e);
             return 1;
         }
     };
@@ -421,17 +691,17 @@ fn cmd_encrypt(args: &[String]) -> i32 {
             match cipher::encrypt_layers(&plaintext, source, layers, algorithm, &metadata, &policy) {
                 Ok(bytes) => match std::fs::write(&out_path, &bytes) {
                     Ok(()) => {
-                        println!("Encryption completed.");
+                        println!("{}", ui::ok_out("Encryption completed."));
                         println!("wrote {} ({} bytes)", out_path, bytes.len());
                         0
                     }
                     Err(e) => {
-                        eprintln!("error: cannot write {}: {}", out_path, e);
+                        errorln!("cannot write {}: {}", out_path, e);
                         1
                     }
                 },
                 Err(e) => {
-                    eprintln!("error: {}", e);
+                    errorln!("{}", e);
                     1
                 }
             }
@@ -441,31 +711,31 @@ fn cmd_encrypt(args: &[String]) -> i32 {
             match cipher::encrypt_with_generated_key(&plaintext, layers, algorithm, &metadata, &policy) {
                 Ok((bytes, mut handle)) => {
                     if let Err(e) = std::fs::write(&out_path, &bytes) {
-                        eprintln!("error: cannot write {}: {}", out_path, e);
+                        errorln!("cannot write {}: {}", out_path, e);
                         return 1;
                     }
-                    println!("Encryption completed.");
+                    println!("{}", ui::ok_out("Encryption completed."));
                     println!();
-                    println!("WARNING:");
+                    println!("{}", ui::warn_prefix());
                     println!("This key will be displayed ONE TIME ONLY.");
                     println!();
                     match handle.display_once() {
                         Ok(shown) => {
-                            println!("HEXA KEY:");
+                            println!("{}", ui::key_banner("HEXA KEY:"));
                             println!("{}", shown);
                             println!();
-                            println!("Save this key securely.");
-                            println!("HEXA cannot recover, display, or reveal this key again.");
+                            println!("{}", ui::dim_out("Save this key securely."));
+                            println!("{}", ui::warn_out("HEXA cannot recover, display, or reveal this key again."));
                         }
                         Err(e) => {
-                            eprintln!("error: {}", e);
+                            errorln!("{}", e);
                             return 1;
                         }
                     }
                     0
                 }
                 Err(e) => {
-                    eprintln!("error: {}", e);
+                    errorln!("{}", e);
                     1
                 }
             }
@@ -493,7 +763,7 @@ fn cmd_decrypt(args: &[String]) -> i32 {
             "--prompt-key" => prompt_key = true,
             other => {
                 if file.is_some() {
-                    eprintln!("error: unexpected argument '{}'", other);
+                    errorln!("unexpected argument '{}'", other);
                     return 2;
                 }
                 file = Some(other.to_string());
@@ -504,14 +774,14 @@ fn cmd_decrypt(args: &[String]) -> i32 {
     let file = match file {
         Some(f) => f,
         None => {
-            eprintln!("error: no .hexa file (usage: hexa decrypt <file.hexa> [options])");
+            errorln!("no .hexa file (usage: hexa decrypt <file.hexa> [options])");
             return 2;
         }
     };
     let data = match std::fs::read(&file) {
         Ok(d) => d,
         Err(e) => {
-            eprintln!("error: cannot read '{}': {}", file, e);
+            errorln!("cannot read '{}': {}", file, e);
             return 1;
         }
     };
@@ -520,7 +790,7 @@ fn cmd_decrypt(args: &[String]) -> i32 {
     let wants_password = match format::parse(&data) {
         Ok(h) => h.kdf.is_some(),
         Err(e) => {
-            eprintln!("error: {}", e);
+            errorln!("{}", e);
             return 1;
         }
     };
@@ -547,7 +817,7 @@ fn cmd_decrypt(args: &[String]) -> i32 {
             Some(p) => match key::parse_display(&p) {
                 Ok(raw) => KeySource::RawKey(raw.to_vec()),
                 Err(e) => {
-                    eprintln!("error: {}", e);
+                    errorln!("{}", e);
                     return 1;
                 }
             },
@@ -558,7 +828,7 @@ fn cmd_decrypt(args: &[String]) -> i32 {
             Some(s) => match key::parse_display(&s) {
                 Ok(raw) => KeySource::RawKey(raw.to_vec()),
                 Err(e) => {
-                    eprintln!("error: {}", e);
+                    errorln!("{}", e);
                     return 1;
                 }
             },
@@ -580,23 +850,23 @@ fn cmd_decrypt(args: &[String]) -> i32 {
             });
             match std::fs::write(&out_path, plain.as_slice()) {
                 Ok(()) => {
-                    println!("Decryption completed.");
+                    println!("{}", ui::ok_out("Decryption completed."));
                     println!("wrote {} ({} bytes)", out_path, plain.len());
                     0
                 }
                 Err(e) => {
-                    eprintln!("error: cannot write {}: {}", out_path, e);
+                    errorln!("cannot write {}: {}", out_path, e);
                     1
                 }
             }
         }
         Err(CryptoError::Fail { code: "EKEY-001", detail }) => {
-            eprintln!("error: EKEY-001: {}", detail);
+            errorln!("EKEY-001: {}", detail);
             1
         }
         Err(_) => {
             // Wrong key, tampered file, truncation: one generic message.
-            eprintln!("error: authentication failed (wrong key or corrupted file)");
+            errorln!("authentication failed (wrong key or corrupted file)");
             1
         }
     }
@@ -606,14 +876,14 @@ fn cmd_inspect(args: &[String]) -> i32 {
     let path = match args.iter().find(|a| !a.starts_with('-')) {
         Some(p) => p.clone(),
         None => {
-            eprintln!("error: no .hexa file (usage: hexa inspect <file.hexa>)");
+            errorln!("no .hexa file (usage: hexa inspect <file.hexa>)");
             return 2;
         }
     };
     let data = match std::fs::read(&path) {
         Ok(d) => d,
         Err(e) => {
-            eprintln!("error: cannot read '{}': {}", path, e);
+            errorln!("cannot read '{}': {}", path, e);
             return 1;
         }
     };
@@ -633,7 +903,7 @@ fn cmd_inspect(args: &[String]) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("error: {}", e);
+            errorln!("{}", e);
             1
         }
     }
@@ -645,14 +915,14 @@ fn cmd_disassemble(args: &[String]) -> i32 {
     let path = match args.iter().find(|a| !a.starts_with('-')) {
         Some(p) => p.clone(),
         None => {
-            eprintln!("error: no binary (usage: hexa disassemble <binary>)");
+            errorln!("no binary (usage: hexa disassemble <binary>)");
             return 2;
         }
     };
     let bytes = match std::fs::read(&path) {
         Ok(b) => b,
         Err(e) => {
-            eprintln!("error: cannot read '{}': {}", path, e);
+            errorln!("cannot read '{}': {}", path, e);
             return 1;
         }
     };
@@ -662,7 +932,7 @@ fn cmd_disassemble(args: &[String]) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("error: {}", e);
+            errorln!("{}", e);
             1
         }
     }
@@ -672,14 +942,14 @@ fn cmd_decompile(args: &[String]) -> i32 {
     let path = match args.iter().find(|a| !a.starts_with('-')) {
         Some(p) => p.clone(),
         None => {
-            eprintln!("error: no binary (usage: hexa decompile <binary>)");
+            errorln!("no binary (usage: hexa decompile <binary>)");
             return 2;
         }
     };
     let bytes = match std::fs::read(&path) {
         Ok(b) => b,
         Err(e) => {
-            eprintln!("error: cannot read '{}': {}", path, e);
+            errorln!("cannot read '{}': {}", path, e);
             return 1;
         }
     };
@@ -689,7 +959,7 @@ fn cmd_decompile(args: &[String]) -> i32 {
             0
         }
         Err(e) => {
-            eprintln!("error: {}", e);
+            errorln!("{}", e);
             1
         }
     }
@@ -698,8 +968,11 @@ fn cmd_decompile(args: &[String]) -> i32 {
 // ---------- doctor / key ----------
 
 fn cmd_doctor() -> i32 {
-    println!("HEXA doctor");
-    println!("compiler version: {}", VERSION);
+    println!("{} v{}", ui::bold_out("HEXA doctor"), VERSION);
+    println!(
+        "compiler version: {}",
+        ui::accent_out(VERSION)
+    );
     println!("language version: {}", LANGUAGE_VERSION);
     println!(".hexa format:     v{}", HEXA_FORMAT_VERSION);
     let mut ok = false;
@@ -718,23 +991,34 @@ fn cmd_doctor() -> i32 {
     let tools_ok = asm_ok && ld_ok;
     println!(
         "assembler:        {}",
-        if asm_ok { tools.asm.as_str() } else { "NOT FOUND" }
+        if asm_ok {
+            ui::ok_out(&tools.asm)
+        } else {
+            ui::err_text("NOT FOUND")
+        }
     );
     println!(
         "linker:           {}",
-        if ld_ok { tools.linker.as_str() } else { "NOT FOUND" }
+        if ld_ok {
+            ui::ok_out(&tools.linker)
+        } else {
+            ui::err_text("NOT FOUND")
+        }
     );
     if tools_ok {
-        println!("native builds:    READY");
+        println!("native builds:    {}", ui::ok_out("READY"));
         ok = true;
     } else {
-        println!("native builds:    UNAVAILABLE (install binutils: 'as' and 'ld')");
+        println!(
+            "native builds:    {}",
+            ui::err_text("UNAVAILABLE (install binutils: 'as' and 'ld')")
+        );
     }
     // CSPRNG check: derive a nonce twice; failure means the OS entropy source is broken.
     match random::nonce12() {
-        Ok(_) => println!("CSPRNG:           OK"),
+        Ok(_) => println!("CSPRNG:           {}", ui::ok_out("OK")),
         Err(e) => {
-            println!("CSPRNG:           FAILED ({})", e);
+            println!("CSPRNG:           {} ({})", ui::err_text("FAILED"), e);
             return 1;
         }
     }
@@ -745,9 +1029,9 @@ fn cmd_key(args: &[String]) -> i32 {
     let sub = args.first().map(|s| s.as_str()).unwrap_or("");
     match sub {
         "show" | "recover" | "reveal" | "export" | "backup" => {
-            eprintln!("ERROR EKEY-004");
-            eprintln!("Generated encryption keys are never recoverable by HEXA.");
-            eprintln!("The key was displayed only once.");
+            eprintln!("{}", ui::err_text("ERROR EKEY-004"));
+            eprintln!("{}", ui::err_text("Generated encryption keys are never recoverable by HEXA."));
+            eprintln!("{}", ui::err_text("The key was displayed only once."));
             1
         }
         "generate" => {
@@ -758,26 +1042,27 @@ fn cmd_key(args: &[String]) -> i32 {
                     let mut gk = match key::GeneratedKey::generate() {
                         Ok(g) => g,
                         Err(e) => {
-                            eprintln!("error: {}", e);
+                            errorln!("{}", e);
                             return 1;
                         }
                     };
                     match gk.display_once() {
                         Ok(shown) => {
-                            println!("WARNING: This key will be displayed ONE TIME ONLY.");
-                            println!("HEXA KEY:");
+                            println!("{}", ui::warn_prefix());
+                            println!("This key will be displayed ONE TIME ONLY.");
+                            println!("{}", ui::key_banner("HEXA KEY:"));
                             println!("{}", shown);
-                            println!("HEXA cannot recover, display, or reveal this key again.");
+                            println!("{}", ui::warn_out("HEXA cannot recover, display, or reveal this key again."));
                             0
                         }
                         Err(e) => {
-                            eprintln!("error: {}", e);
+                            errorln!("{}", e);
                             1
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("error: {}", e);
+                    errorln!("{}", e);
                     2
                 }
             }
@@ -788,7 +1073,7 @@ fn cmd_key(args: &[String]) -> i32 {
             0
         }
         other => {
-            eprintln!("error: unknown key subcommand '{}'", other);
+            errorln!("unknown key subcommand '{}'", other);
             2
         }
     }
@@ -801,7 +1086,7 @@ fn prompt_secret(prompt: &str) -> Option<Zeroizing<String>> {
     match rpassword::prompt_password(prompt) {
         Ok(s) => Some(Zeroizing::new(s)),
         Err(e) => {
-            eprintln!("error: cannot read key from terminal: {}", e);
+            errorln!("cannot read key from terminal: {}", e);
             None
         }
     }
@@ -813,7 +1098,7 @@ fn read_secret_file(path: &str) -> Option<Zeroizing<String>> {
             let mut s = match String::from_utf8(bytes) {
                 Ok(s) => Zeroizing::new(s),
                 Err(_) => {
-                    eprintln!("error: key file is not valid UTF-8");
+                    errorln!("key file is not valid UTF-8");
                     return None;
                 }
             };
@@ -823,7 +1108,7 @@ fn read_secret_file(path: &str) -> Option<Zeroizing<String>> {
             Some(s)
         }
         Err(e) => {
-            eprintln!("error: cannot read key file '{}': {}", path, e);
+            errorln!("cannot read key file '{}': {}", path, e);
             None
         }
     }
